@@ -1,0 +1,54 @@
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: "postgres_shopapp"
+    hostname: "postgres_shopapp"
+    networks:
+      - internal
+    ports:
+      - 6543:5432
+    volumes:
+      - shopapp_db_data:/var/lib/postgresql/data
+    command: [
+      "postgres",
+      "-c", "max_connections=100",
+      "-c", "shared_buffers=128MB",
+      "-c", "work_mem=4MB",
+      "-c", "maintenance_work_mem=64MB",
+      "-c", "effective_cache_size=4096MB"
+    ]
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: shopapp
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U root -d shopapp"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  redis:
+    image: redis:alpine
+    container_name: "redis-shopapp"
+    networks:
+      - internal
+    ports:
+      - 6379:6379
+    volumes:
+      - shopapp_redis_data:/data
+    # restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 5s
+      retries: 50
+
+volumes:
+  shopapp_db_data:
+  shopapp_redis_data:
+networks:
+  internal:
