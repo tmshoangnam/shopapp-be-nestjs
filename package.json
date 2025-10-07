@@ -25,9 +25,14 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "ts-node prisma/seeds/index.ts",
-    "db:seed:partners": "ts-node prisma/seeds/partner.seed.ts",
+    "db:seed:all": "ts-node scripts/seed-all.ts",
     "db:seed:users": "ts-node prisma/seeds/user.seed.ts",
-    "db:reset": "prisma migrate reset --force && npm run db:seed"
+    "db:seed:partners": "ts-node prisma/seeds/partner.seed.ts",
+    "db:seed:services": "ts-node prisma/seeds/service.seed.ts",
+    "db:seed:bookings": "ts-node prisma/seeds/booking.seed.ts",
+    "db:seed:reviews": "ts-node prisma/seeds/review.seed.ts",
+    "db:seed:notifications": "ts-node prisma/seeds/notification.seed.ts",
+    "db:reset": "prisma migrate reset --force && npm run db:seed:all"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.523.0",
