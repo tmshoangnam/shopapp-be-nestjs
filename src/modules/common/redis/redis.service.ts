@@ -19,7 +19,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     const redisUrl = this.configService.get('REDIS_URL') || 'redis://localhost:6380';
-    
+    const redisEnabled = this.configService.get('REDIS_ENABLED') || false;
+    if (!redisEnabled) {
+      this.logger.log('Redis is disabled');
+      return;
+    }
     try {
       // Main client for general operations
       this.client = createClient({
