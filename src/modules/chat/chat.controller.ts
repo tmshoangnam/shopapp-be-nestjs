@@ -13,10 +13,12 @@ import {
 import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 export class GetMessagesDto {
   @IsOptional()
@@ -57,8 +59,12 @@ export class DeleteMessageDto {
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Get('messages')
   async getMessages(
@@ -121,7 +127,15 @@ export class ChatController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   async getOnlineUsers() {
-    return this.chatService.getOnlineUsers();
+    // Get online users from gateway (real-time data)
+    const onlineUsers = this.chatGateway.getOnlineUsers();
+    const totalOnline = this.chatGateway.getOnlineUserCount();
+    
+    return {
+      onlineUsers,
+      totalOnline,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('admin/stats')

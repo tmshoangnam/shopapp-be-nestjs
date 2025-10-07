@@ -203,24 +203,66 @@ model Review {
 // Chat & Real-time Models
 // ============================================
 
+model Room {
+  id          String   @id @default(uuid())
+  name        String?
+  type        RoomType @default(DIRECT)
+  description String?
+  isActive    Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  messages ChatMessage[]
+  
+  @@index([type])
+  @@index([isActive])
+  @@map("rooms")
+}
+
+enum RoomType {
+  DIRECT     // Direct message between two users
+  GROUP      // Group chat
+  SUPPORT    // Customer support chat
+  GENERAL    // General public chat
+}
+
 model ChatMessage {
-  id         String   @id @default(uuid())
-  senderId   String
-  receiverId String?
+  id         String      @id @default(uuid())
   roomId     String?
+  senderId   String
+  receiverId String?     // For direct messages
   content    String
-  isRead     Boolean  @default(false)
+  status     MessageStatus @default(SENT)
+  messageType MessageType @default(TEXT)
   
   createdAt DateTime @default(now())
   
   // Relations
-  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  room   Room? @relation(fields: [roomId], references: [id])
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
   
+  @@index([roomId])
   @@index([senderId])
   @@index([receiverId])
-  @@index([roomId])
+  @@index([status])
   @@index([createdAt])
   @@map("chat_messages")
+}
+
+enum MessageStatus {
+  SENT       // Message sent but not delivered
+  DELIVERED  // Message delivered to recipient
+  READ       // Message read by recipient
+  FAILED     // Message failed to send
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
 }
 
 // ============================================
@@ -278,4 +320,36 @@ enum NotificationType {
   APPOINTMENT_REMINDER
   NEW_MESSAGE
   SYSTEM_UPDATE
+}
+
+// ============================================
+// Audit Log Models
+// ============================================
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String?     // Nullable for system actions
+  action    String      // Action performed (e.g., 'user.login', 'appointment.create')
+  resource  String?     // Resource affected (e.g., 'User', 'Appointment')
+  resourceId String?    // ID of the affected resource
+  details   Json?       // Additional details as JSON
+  ipAddress String?     // Client IP address
+  userAgent String?     // Client user agent
+  status    AuditStatus @default(SUCCESS)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditStatus {
+  SUCCESS   // Action completed successfully
+  FAILED    // Action failed
+  PENDING   // Action is pending
 }

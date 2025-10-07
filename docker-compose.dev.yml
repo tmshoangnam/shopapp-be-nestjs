@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Development
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: shopapp-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shopapp
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "6543:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - shopapp-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d shopapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Development
+  redis-dev:
+    image: redis:7-alpine
+    container_name: shopapp-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - shopapp-dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # Redis Commander for Redis Management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: shopapp-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis-dev:6379
+    ports:
+      - "8082:8081"
+    depends_on:
+      - redis-dev
+    networks:
+      - shopapp-dev-network
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  shopapp-dev-network:
+    driver: bridge

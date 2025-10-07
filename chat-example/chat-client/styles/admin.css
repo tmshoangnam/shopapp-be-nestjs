@@ -1,0 +1,747 @@
+/* ============================================
+   Admin CSS - Admin Dashboard Styles
+   ============================================ */
+
+/* ============================================
+   Admin Dashboard Layout
+   ============================================ */
+
+.admin-dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-secondary);
+}
+
+/* ============================================
+   Admin Navigation
+   ============================================ */
+
+.admin-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.nav-brand i {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.nav-brand h1 {
+    margin-bottom: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.nav-stats {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xl);
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.admin-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+}
+
+.admin-profile img {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-full);
+}
+
+.admin-profile span {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* ============================================
+   Admin Content
+   ============================================ */
+
+.admin-content {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ============================================
+   Admin Sidebar
+   ============================================ */
+
+.admin-sidebar {
+    width: 350px;
+    background-color: var(--bg-primary);
+    border-right: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.search-box input {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    font-size: 0.875rem;
+}
+
+.search-box input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.filter-tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-md);
+}
+
+.filter-tab {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex: 1;
+    text-align: center;
+}
+
+.filter-tab:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.filter-tab.active {
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    border-color: var(--primary-color);
+}
+
+/* ============================================
+   Users List
+   ============================================ */
+
+.users-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-bottom: var(--spacing-xs);
+    border: 1px solid transparent;
+}
+
+.user-item:hover {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-light);
+    transform: translateX(2px);
+}
+
+.user-item.active {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
+.user-item.pending {
+    border-left: 3px solid var(--warning-color);
+}
+
+.user-item.online {
+    border-left: 3px solid var(--success-color);
+}
+
+.user-item.resolved {
+    border-left: 3px solid var(--info-color);
+}
+
+.user-avatar {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.user-avatar .status-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--bg-primary);
+}
+
+.user-avatar .status-indicator.online {
+    background-color: var(--success-color);
+}
+
+.user-avatar .status-indicator.offline {
+    background-color: var(--text-tertiary);
+}
+
+.user-avatar .status-indicator.busy {
+    background-color: var(--warning-color);
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-last-message {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: var(--spacing-xs);
+}
+
+.user-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.user-time {
+    font-size: 0.625rem;
+    color: var(--text-tertiary);
+}
+
+.user-badge {
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    border-radius: var(--radius-full);
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    min-width: 1.25rem;
+    text-align: center;
+}
+
+.user-badge.warning {
+    background-color: var(--warning-color);
+}
+
+.user-badge.error {
+    background-color: var(--error-color);
+}
+
+.user-badge.success {
+    background-color: var(--success-color);
+}
+
+/* ============================================
+   Quick Actions
+   ============================================ */
+
+.quick-actions {
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-light);
+    background-color: var(--bg-secondary);
+}
+
+.quick-actions h3 {
+    margin-bottom: var(--spacing-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.quick-actions .btn-secondary {
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+    justify-content: flex-start;
+    font-size: 0.875rem;
+}
+
+.quick-actions .btn-secondary:last-child {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   Admin Chat Area
+   ============================================ */
+
+.admin-chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: var(--bg-secondary);
+}
+
+/* ============================================
+   Admin Welcome Screen
+   ============================================ */
+
+.welcome-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+    text-align: center;
+}
+
+.welcome-content {
+    max-width: 500px;
+}
+
+.welcome-icon i {
+    font-size: 4rem;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-xl);
+}
+
+.welcome-content h2 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.welcome-content p {
+    margin-bottom: var(--spacing-2xl);
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.welcome-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-fast);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.stat-card i {
+    font-size: 2rem;
+    color: var(--primary-color);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+/* ============================================
+   Admin Chat Window Header
+   ============================================ */
+
+.chat-window-header {
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-light);
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.chat-partner-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.user-info-badge {
+    margin-left: var(--spacing-sm);
+}
+
+.user-info-badge .badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+}
+
+/* ============================================
+   Admin Message Input
+   ============================================ */
+
+.message-input-container {
+    background-color: var(--bg-primary);
+    border-top: 1px solid var(--border-light);
+    padding: var(--spacing-lg);
+}
+
+.message-input-wrapper {
+    background-color: var(--bg-secondary);
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-sm);
+    transition: all var(--transition-fast);
+}
+
+.message-input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+    background-color: var(--bg-primary);
+}
+
+/* ============================================
+   Admin Quick Replies
+   ============================================ */
+
+.quick-replies {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.quick-reply {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.quick-reply:hover {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   Admin Templates Modal
+   ============================================ */
+
+.templates-list {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.template-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.template-item:hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
+.template-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.template-content {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* ============================================
+   Admin User Info Modal
+   ============================================ */
+
+.user-info-content {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.user-info-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.user-info-section h4 {
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.info-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* ============================================
+   Admin Responsive Design
+   ============================================ */
+
+@media (max-width: 1024px) {
+    .nav-stats {
+        gap: var(--spacing-lg);
+    }
+    
+    .stat-value {
+        font-size: 1.25rem;
+    }
+    
+    .admin-sidebar {
+        width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-nav {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm);
+    }
+    
+    .nav-stats {
+        order: 3;
+        width: 100%;
+        justify-content: space-around;
+        margin-top: var(--spacing-sm);
+        padding-top: var(--spacing-sm);
+        border-top: 1px solid var(--border-light);
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        transform: translateX(-100%);
+        transition: transform var(--transition-normal);
+    }
+    
+    .admin-sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .admin-chat-area {
+        width: 100%;
+    }
+    
+    .welcome-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+    }
+    
+    .stat-card {
+        padding: var(--spacing-md);
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-brand h1 {
+        font-size: 1rem;
+    }
+    
+    .stat-item {
+        gap: 0;
+    }
+    
+    .stat-value {
+        font-size: 1rem;
+    }
+    
+    .stat-label {
+        font-size: 0.625rem;
+    }
+    
+    .admin-profile span {
+        display: none;
+    }
+    
+    .welcome-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-actions {
+        padding: var(--spacing-md);
+    }
+    
+    .message-input-container {
+        padding: var(--spacing-md);
+    }
+}
+
+/* ============================================
+   Admin Animations
+   ============================================ */
+
+.user-item {
+    animation: slideIn var(--transition-normal) ease-out;
+}
+
+.stat-card {
+    animation: fadeInUp var(--transition-normal) ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   Admin Dark Mode Support
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+    .admin-nav {
+        background-color: #1e293b;
+        border-bottom-color: #334155;
+    }
+    
+    .admin-sidebar {
+        background-color: #1e293b;
+        border-right-color: #334155;
+    }
+    
+    .sidebar-header {
+        background-color: #0f172a;
+        border-bottom-color: #334155;
+    }
+    
+    .user-item:hover {
+        background-color: #334155;
+    }
+    
+    .user-item.active {
+        background-color: #3730a3;
+        border-color: #4f46e5;
+    }
+    
+    .quick-actions {
+        background-color: #0f172a;
+        border-top-color: #334155;
+    }
+    
+    .stat-card {
+        background-color: #1e293b;
+        border-color: #334155;
+    }
+}

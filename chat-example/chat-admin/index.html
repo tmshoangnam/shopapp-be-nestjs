@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopApp Chat - Admin Dashboard</title>
+    <link rel="stylesheet" href="../chat-client/styles/main.css">
+    <link rel="stylesheet" href="../chat-client/styles/chat.css">
+    <link rel="stylesheet" href="../chat-client/styles/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-dashboard">
+        <!-- Top Navigation -->
+        <nav class="admin-nav">
+            <div class="nav-brand">
+                <i class="fas fa-headset"></i>
+                <h1>ShopApp Admin Chat</h1>
+            </div>
+            <div class="nav-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Online</span>
+                    <span class="stat-value" id="onlineUsers">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pending</span>
+                    <span class="stat-value" id="pendingChats">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Active</span>
+                    <span class="stat-value" id="activeChats">0</span>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <button class="btn-icon" id="refreshBtn" title="Làm mới">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn-icon" id="settingsBtn" title="Cài đặt">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="admin-profile">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNmNTkzNzUiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iNSIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTggMjRDOCAyMCAxMCAxNiAxNiAxNkMyMiAxNiAyNCAyMCAyNCAyNFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" alt="Admin Avatar" id="adminAvatar">
+                    <span id="adminName">Admin User</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="admin-content">
+            <!-- Sidebar -->
+            <aside class="admin-sidebar">
+                <!-- Search and Filters -->
+                <div class="sidebar-header">
+                    <div class="search-box">
+                        <input type="text" placeholder="Tìm kiếm khách hàng..." id="searchInput">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">Tất cả</button>
+                        <button class="filter-tab" data-filter="online">Đang online</button>
+                        <button class="filter-tab" data-filter="pending">Chờ xử lý</button>
+                        <button class="filter-tab" data-filter="resolved">Đã xử lý</button>
+                    </div>
+                </div>
+
+                <!-- Users List -->
+                <div class="users-list" id="usersList">
+                    <!-- Users will be loaded here -->
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h3>Thao tác nhanh</h3>
+                    <button class="btn-secondary" id="broadcastBtn">
+                        <i class="fas fa-bullhorn"></i>
+                        Thông báo chung
+                    </button>
+                    <button class="btn-secondary" id="exportChatsBtn">
+                        <i class="fas fa-download"></i>
+                        Xuất cuộc trò chuyện
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Chat Area -->
+            <main class="admin-chat-area">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <div class="welcome-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <h2>Chào mừng Admin!</h2>
+                        <p>Chọn một khách hàng để bắt đầu hỗ trợ hoặc xem thống kê</p>
+                        <div class="welcome-stats">
+                            <div class="stat-card">
+                                <i class="fas fa-users"></i>
+                                <span class="stat-number" id="totalUsers">0</span>
+                                <span class="stat-label">Tổng khách hàng</span>
+                            </div>
+                            <div class="stat-card">
+                                <i class="fas fa-comment-dots"></i>
+                                <span class="stat-number" id="totalMessages">0</span>
+                                <span class="stat-label">Tin nhắn hôm nay</span>
+                            </div>
+                            <div class="stat-card">
+                                <i class="fas fa-clock"></i>
+                                <span class="stat-number" id="avgResponse">0s</span>
+                                <span class="stat-label">Thời gian phản hồi TB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Window -->
+                <div class="chat-window" id="chatWindow" style="display: none;">
+                    <!-- Chat Header -->
+                    <div class="chat-window-header">
+                        <div class="chat-partner-info">
+                            <div class="avatar">
+                                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iNSIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTggMjRDOCAyMCAxMCAxNiAxNiAxNkMyMiAxNiAyNCAyMCAyNCAyNFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" alt="User Avatar" id="partnerAvatar">
+                            </div>
+                            <div class="partner-details">
+                                <h4 id="partnerName">Khách hàng</h4>
+                                <span class="partner-status" id="partnerStatus">
+                                    <i class="fas fa-circle"></i>
+                                    Đang hoạt động
+                                </span>
+                            </div>
+                            <div class="user-info-badge">
+                                <span class="badge" id="userBadge">Khách hàng</span>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button class="btn-icon" id="userHistoryBtn" title="Lịch sử">
+                                <i class="fas fa-history"></i>
+                            </button>
+                            <button class="btn-icon" id="transferBtn" title="Chuyển tiếp">
+                                <i class="fas fa-share"></i>
+                            </button>
+                            <button class="btn-icon" id="blockBtn" title="Chặn">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            <button class="btn-icon" id="resolveBtn" title="Giải quyết">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div class="messages-container">
+                        <div class="messages-list" id="messagesList">
+                            <!-- Messages will be loaded here -->
+                        </div>
+                        
+                        <!-- Typing Indicator -->
+                        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <span class="typing-text">Khách hàng đang nhập...</span>
+                        </div>
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="message-input-container">
+                        <div class="message-input-wrapper">
+                            <button class="btn-icon" id="attachBtn" title="Đính kèm file">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button class="btn-icon" id="templateBtn" title="Mẫu tin nhắn">
+                                <i class="fas fa-clipboard-list"></i>
+                            </button>
+                            <div class="input-wrapper">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="Nhập tin nhắn hỗ trợ..."
+                                    rows="1"
+                                ></textarea>
+                            </div>
+                            <button class="btn-send" id="sendBtn" title="Gửi tin nhắn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Quick Reply Templates -->
+                        <div class="quick-replies" id="quickReplies">
+                            <button class="quick-reply" data-template="greeting">Chào bạn!</button>
+                            <button class="quick-reply" data-template="help">Tôi có thể giúp gì cho bạn?</button>
+                            <button class="quick-reply" data-template="wait">Vui lòng chờ một chút...</button>
+                            <button class="quick-reply" data-template="thanks">Cảm ơn bạn đã liên hệ!</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Đang kết nối...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Templates Modal -->
+    <div class="modal" id="templatesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Mẫu tin nhắn</h3>
+                <button class="btn-close" id="closeTemplatesModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="templates-list" id="templatesList">
+                    <!-- Templates will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Info Modal -->
+    <div class="modal" id="userInfoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Thông tin khách hàng</h3>
+                <button class="btn-close" id="closeUserInfoModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="user-info-content" id="userInfoContent">
+                    <!-- User info will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status Toast -->
+    <div class="toast" id="connectionToast">
+        <div class="toast-content">
+            <i class="fas fa-wifi"></i>
+            <span id="connectionMessage">Đã kết nối</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
+    <script src="../chat-client/js/utils.js"></script>
+    <script src="../chat-client/js/socket-client.js"></script>
+    <script src="js/chat-admin.js"></script>
+    <script src="js/admin-main.js"></script>
+</body>
+</html>

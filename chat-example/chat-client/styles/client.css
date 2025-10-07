@@ -1,0 +1,484 @@
+/* ============================================
+   Client CSS - Client-specific Styles
+   ============================================ */
+
+/* ============================================
+   Client Header
+   ============================================ */
+
+.chat-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: var(--text-inverse);
+}
+
+.user-details h3 {
+    color: var(--text-inverse);
+}
+
+.user-details .status {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.header-actions .btn-icon {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.header-actions .btn-icon:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-inverse);
+}
+
+/* ============================================
+   Client Sidebar
+   ============================================ */
+
+.chat-sidebar {
+    background-color: var(--bg-primary);
+    border-right: 1px solid var(--border-light);
+}
+
+.sidebar-header {
+    background-color: var(--bg-secondary);
+}
+
+.sidebar-header h2 {
+    color: var(--text-primary);
+}
+
+.search-box input {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+}
+
+.search-box input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* ============================================
+   Client Conversation Items
+   ============================================ */
+
+.conversation-item {
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
+}
+
+.conversation-item:hover {
+    background-color: var(--bg-secondary);
+    transform: translateX(2px);
+}
+
+.conversation-item.active {
+    background-color: var(--primary-light);
+    border: 1px solid var(--primary-color);
+}
+
+.conversation-item.active .conversation-name {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.conversation-badge {
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    font-weight: 600;
+}
+
+/* ============================================
+   Client Welcome Screen
+   ============================================ */
+
+.welcome-content .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-weight: 600;
+    box-shadow: var(--shadow-md);
+}
+
+.welcome-content .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* ============================================
+   Client Chat Window
+   ============================================ */
+
+.chat-window-header {
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.partner-details h4 {
+    color: var(--text-primary);
+}
+
+.partner-details .partner-status {
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   Client Messages
+   ============================================ */
+
+.message.sent .message-content {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.message.received .message-content {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.message.sent .message-content::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    bottom: 8px;
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    border-left-color: var(--primary-color);
+    border-bottom: none;
+    border-right: none;
+}
+
+.message.received .message-content::after {
+    content: '';
+    position: absolute;
+    left: -8px;
+    bottom: 8px;
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    border-right-color: var(--bg-primary);
+    border-bottom: none;
+    border-left: none;
+}
+
+/* ============================================
+   Client Message Input
+   ============================================ */
+
+.message-input-wrapper {
+    background-color: var(--bg-secondary);
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    transition: all var(--transition-fast);
+}
+
+.message-input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+    background-color: var(--bg-primary);
+}
+
+.input-wrapper textarea {
+    color: var(--text-primary);
+}
+
+.btn-send {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-send:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-send:active {
+    transform: scale(0.95);
+}
+
+/* ============================================
+   Client Quick Replies
+   ============================================ */
+
+.quick-reply {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.quick-reply:hover {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   Client File Upload
+   ============================================ */
+
+.upload-area {
+    border: 2px dashed var(--border-medium);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-2xl);
+    text-align: center;
+    background-color: var(--bg-secondary);
+    transition: all var(--transition-fast);
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: var(--primary-color);
+    background-color: var(--primary-light);
+}
+
+.upload-area.dragover {
+    border-color: var(--primary-color);
+    background-color: var(--primary-light);
+}
+
+.upload-area i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.upload-area p {
+    color: var(--text-secondary);
+    margin-bottom: 0;
+}
+
+.upload-area span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.uploaded-files {
+    margin-top: var(--spacing-md);
+}
+
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.file-icon {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+}
+
+.file-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-size {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.file-remove {
+    background-color: transparent;
+    border: none;
+    color: var(--error-color);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.file-remove:hover {
+    background-color: var(--error-color);
+    color: var(--text-inverse);
+}
+
+/* ============================================
+   Client Loading States
+   ============================================ */
+
+.loading-overlay {
+    background-color: rgba(255, 255, 255, 0.95);
+}
+
+.loading-spinner i {
+    color: var(--primary-color);
+}
+
+/* ============================================
+   Client Toast
+   ============================================ */
+
+.toast-content {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-lg);
+}
+
+.toast-content i {
+    color: var(--success-color);
+}
+
+/* ============================================
+   Client Animations
+   ============================================ */
+
+.conversation-item {
+    animation: slideIn var(--transition-normal) ease-out;
+}
+
+.message {
+    animation: fadeInUp var(--transition-normal) ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   Client Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+    .chat-header {
+        padding: var(--spacing-sm);
+    }
+    
+    .user-details h3 {
+        font-size: 0.875rem;
+    }
+    
+    .conversation-item {
+        padding: var(--spacing-xs);
+    }
+    
+    .conversation-name {
+        font-size: 0.8rem;
+    }
+    
+    .conversation-message {
+        font-size: 0.7rem;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .message-content {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    .message-text {
+        font-size: 0.8rem;
+    }
+    
+    .welcome-content .btn-primary {
+        padding: var(--spacing-sm) var(--spacing-lg);
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-container {
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .welcome-screen {
+        padding: var(--spacing-lg);
+    }
+    
+    .welcome-icon i {
+        font-size: 2.5rem;
+    }
+    
+    .welcome-content h2 {
+        font-size: 1.5rem;
+    }
+    
+    .message-input-wrapper {
+        padding: var(--spacing-xs);
+    }
+    
+    .btn-send {
+        width: 2rem;
+        height: 2rem;
+    }
+    
+    .quick-replies {
+        gap: var(--spacing-xs);
+    }
+    
+    .quick-reply {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* ============================================
+   Client Dark Mode Support
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+    .chat-sidebar {
+        background-color: #1e293b;
+        border-right-color: #334155;
+    }
+    
+    .sidebar-header {
+        background-color: #0f172a;
+    }
+    
+    .conversation-item:hover {
+        background-color: #334155;
+    }
+    
+    .conversation-item.active {
+        background-color: #3730a3;
+        border-color: #4f46e5;
+    }
+    
+    .message.received .message-content {
+        background-color: #1e293b;
+        border-color: #334155;
+        color: #f1f5f9;
+    }
+    
+    .message-input-wrapper {
+        background-color: #1e293b;
+        border-color: #334155;
+    }
+    
+    .message-input-wrapper:focus-within {
+        background-color: #0f172a;
+    }
+}

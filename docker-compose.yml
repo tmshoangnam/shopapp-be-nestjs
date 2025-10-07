@@ -1,54 +1,161 @@
-services:
-  database:
-    image: postgres:17-alpine
-    container_name: "postgres_shopapp"
-    hostname: "postgres_shopapp"
-    networks:
-      - internal
-    ports:
-      - 6543:5432
-    volumes:
-      - shopapp_db_data:/var/lib/postgresql/data
-    command: [
-      "postgres",
-      "-c", "max_connections=100",
-      "-c", "shared_buffers=128MB",
-      "-c", "work_mem=4MB",
-      "-c", "maintenance_work_mem=64MB",
-      "-c", "effective_cache_size=4096MB"
-    ]
-    environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: shopapp
-      PGDATA: /var/lib/postgresql/data/pgdata
-    healthcheck:
-      test:
-        ["CMD-SHELL", "pg_isready -U root -d shopapp"]
-      interval: 2s
-      timeout: 3s
-      retries: 40
+version: '3.8'
 
-  redis:
-    image: redis:alpine
-    container_name: "redis-shopapp"
-    networks:
-      - internal
-    ports:
-      - 6379:6379
-    volumes:
-      - shopapp_redis_data:/data
-    # restart: always
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: shopapp-postgres
+    restart: unless-stopped
     environment:
-      ALLOW_EMPTY_PASSWORD: "yes"
+      POSTGRES_DB: shopapp_db
+      POSTGRES_USER: shopapp_user
+      POSTGRES_PASSWORD: shopapp_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - shopapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopapp_user -d shopapp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and message streams
+  redis:
+    image: redis:7-alpine
+    container_name: shopapp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shopapp-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 1s
-      timeout: 5s
-      retries: 50
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # Main API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: shopapp-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://shopapp_user:shopapp_password@postgres:5432/shopapp_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRES_IN: 7d
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-this-in-production
+      JWT_REFRESH_EXPIRES_IN: 30d
+      
+      # OAuth Configuration
+      GOOGLE_CLIENT_ID: your-google-client-id
+      GOOGLE_CLIENT_SECRET: your-google-client-secret
+      FACEBOOK_APP_ID: your-facebook-app-id
+      FACEBOOK_APP_SECRET: your-facebook-app-secret
+      GITHUB_CLIENT_ID: your-github-client-id
+      GITHUB_CLIENT_SECRET: your-github-client-secret
+      LINE_CHANNEL_ID: your-line-channel-id
+      LINE_CHANNEL_SECRET: your-line-channel-secret
+      INSTAGRAM_CLIENT_ID: your-instagram-client-id
+      INSTAGRAM_CLIENT_SECRET: your-instagram-client-secret
+      
+      # AWS S3 Configuration
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: your-aws-access-key
+      AWS_SECRET_ACCESS_KEY: your-aws-secret-key
+      AWS_S3_BUCKET: your-s3-bucket-name
+      
+      # Worker Configuration
+      CHAT_BATCH_SIZE: 10
+      CHAT_PROCESSING_INTERVAL: 1000
+      AUDIT_BATCH_SIZE: 20
+      AUDIT_PROCESSING_INTERVAL: 2000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shopapp-network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Worker Service for background processing
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: shopapp-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://shopapp_user:shopapp_password@postgres:5432/shopapp_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      
+      # Worker Configuration
+      CHAT_BATCH_SIZE: 10
+      CHAT_PROCESSING_INTERVAL: 1000
+      AUDIT_BATCH_SIZE: 20
+      AUDIT_PROCESSING_INTERVAL: 2000
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shopapp-network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "worker.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: shopapp-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - shopapp-network
 
 volumes:
-  shopapp_db_data:
-  shopapp_redis_data:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
 networks:
-  internal:
+  shopapp-network:
+    driver: bridge

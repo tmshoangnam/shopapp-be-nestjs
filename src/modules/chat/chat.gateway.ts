@@ -11,6 +11,8 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatService } from './chat.service';
+import { RedisService } from '../common/redis/redis.service';
+import { AuditService } from '../audit/audit.service';
 
 @WebSocketGateway({
   cors: {
@@ -30,11 +32,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private userSockets: Map<string, string> = new Map(); // userId -> socketId
+  private onlineUsers: Map<string, any> = new Map(); // userId -> userInfo
 
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private redis: RedisService,
+    private auditService: AuditService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -80,21 +85,65 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // If user exists, disconnect old socket first
       if (isReconnect && existingSocketId !== client.id) {
         const oldSocket = this.server.sockets.sockets.get(existingSocketId);
-        if (oldSocket) {
-          oldSocket.disconnect();
+        if (oldSocket && oldSocket.connected) {
+          console.log('Disconnecting old socket', existingSocketId, 'for user', userId);
+          // Mark old socket as inactive to prevent processing its disconnect event
+          oldSocket.data.isActive = false;
+          // Disconnect immediately to prevent multiple connections
+          oldSocket.disconnect(true);
+        } else {
+          console.log('Old socket', existingSocketId, 'is already disconnected for user', userId);
         }
       }
 
-      // Store socket connection
+      // Check if this socket is already connected (prevent duplicate connections)
+      if (this.userSockets.has(userId) && this.userSockets.get(userId) === client.id) {
+        console.log('Socket', client.id, 'is already connected for user', userId);
+        return;
+      }
+
+      // Store socket connection AFTER handling old socket
+      console.log('Storing socket connection', userId, client.id);
       this.userSockets.set(userId, client.id);
       client.data.userId = userId;
       client.data.isAdmin = false;
+      client.data.email = payload.email;
+      client.data.firstName = payload.firstName;
+      client.data.lastName = payload.lastName;
+      client.data.avatar = payload.avatar;
+      
+      // Add a flag to prevent duplicate processing
+      client.data.isActive = true;
 
       console.log(`User ${userId} ${isReconnect ? 'reconnected' : 'connected'} with socket ${client.id}`);
 
-      // Send unread count
-      const unreadCount = await this.chatService.getUnreadCount(userId);
-      client.emit('unread-count', { count: unreadCount });
+      // Get user info from database
+      const userInfo = await this.chatService.getUserById(userId);
+      if (userInfo) {
+        this.onlineUsers.set(userId, {
+          ...userInfo,
+          socketId: client.id,
+          isOnline: true,
+          lastSeen: new Date().toISOString()
+        });
+        
+        // Update online users in Redis
+        await this.chatService.updateOnlineUsers(Array.from(this.onlineUsers.values()));
+      }
+
+        // Send unread count
+        const unreadCount = await this.chatService.getUnreadCount(userId);
+        client.emit('unread-count', { count: unreadCount });
+        
+        // Notify admin about user online status
+        if (userId !== 'admin') {
+          this.server.emit('user-online', {
+            userId: userId,
+            userInfo: userInfo,
+            isOnline: true,
+            timestamp: new Date().toISOString()
+          });
+        }
 
       // Notify admin about user connection/reconnection
       const userData = {
@@ -103,7 +152,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userInfo: {
           firstName: payload.firstName || 'User',
           lastName: payload.lastName || '',
-          email: payload.email || ''
+          email: payload.email || '',
+          avatar: payload.avatar || null
         }
       };
 
@@ -119,15 +169,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     const userId = client.data.userId;
     if (userId) {
-      this.userSockets.delete(userId);
-      console.log(`User ${userId} disconnected`);
-      
-      // Notify admin about user disconnection
-      if (userId !== 'admin') {
-        this.server.emit('user-disconnected', { userId });
+      // Only process disconnect if this socket is still active
+      if (client.data.isActive) {
+        // Only remove from maps if this is the current active socket for the user
+        const currentSocketId = this.userSockets.get(userId);
+        if (currentSocketId === client.id) {
+          this.userSockets.delete(userId);
+          this.onlineUsers.delete(userId);
+          
+          // Update online users in Redis
+          await this.chatService.updateOnlineUsers(Array.from(this.onlineUsers.values()));
+          
+          console.log(`User ${userId} disconnected (socket ${client.id})`);
+          
+          // Notify admin about user disconnection
+          if (userId !== 'admin') {
+            this.server.emit('user-disconnected', { userId });
+            this.server.emit('user-offline', {
+              userId: userId,
+              isOnline: false,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          console.log(`Ignoring disconnect for old socket ${client.id} of user ${userId} (current: ${currentSocketId})`);
+        }
+      } else {
+        console.log(`Ignoring disconnect for inactive socket ${client.id} of user ${userId}`);
       }
     }
   }
@@ -135,26 +206,53 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send-message')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { receiverId?: string; roomId?: string; content: string },
+    @MessageBody() data: { receiverId?: string; roomId?: string; content: string; messageType?: string },
   ) {
     const senderId = client.data.userId;
-    console.log('send-message', client.data);
+    console.log('send-message', data);
     if (!senderId) {
       return { error: 'Unauthorized' };
     }
 
     try {
-      // Save message to database
-      const message = await this.chatService.saveMessage({
+      // Generate message ID
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const messageData = {
+        id: messageId,
+        roomId: data.roomId || null,
         senderId,
-        receiverId: data.receiverId,
-        roomId: data.roomId,
+        receiverId: data.receiverId || null,
         content: data.content,
+        status: 'SENT',
+        messageType: data.messageType || 'TEXT',
+        createdAt: new Date().toISOString(),
+      };
+
+      // Publish message to Redis stream for persistence
+      await this.redis.publishToStream('chat_stream', {
+        data: JSON.stringify(messageData),
       });
 
-      console.log('Message saved to DB:', message);
-      console.log('Sender ID:', senderId);
-      console.log('Receiver ID:', data.receiverId);
+      console.log('Message published to Redis stream:', messageId);
+
+      // Create message object for real-time delivery
+      const message = {
+        id: messageId,
+        roomId: data.roomId,
+        senderId,
+        receiverId: data.receiverId,
+        content: data.content,
+        status: 'SENT',
+        messageType: data.messageType || 'TEXT',
+        createdAt: new Date(),
+        sender: {
+          id: senderId,
+          email: client.data.email || '',
+          firstName: client.data.firstName || 'User',
+          lastName: client.data.lastName || '',
+          avatar: client.data.avatar || null,
+        },
+      };
 
       // Emit to sender (confirmation)
       client.emit('message-sent', { success: true, message });
@@ -185,11 +283,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         console.log('Admin not connected');
       }
 
-      // Note: Removed message-broadcast to avoid duplicates
-      // Each client will receive messages via new-message event
+      // Log chat message event for audit
+      await this.auditService.logChatMessage(
+        senderId,
+        messageId,
+        data.roomId,
+        data.receiverId,
+        client.handshake.address,
+      );
 
       return { success: true, message };
     } catch (error) {
+      console.error('Error sending message:', error);
       return { error: error.message };
     }
   }
@@ -251,5 +356,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return { success: true };
+  }
+
+  // Method to get current online users
+  getOnlineUsers() {
+    return Array.from(this.onlineUsers.values());
+  }
+
+  // Method to get online user count
+  getOnlineUserCount() {
+    return this.onlineUsers.size;
   }
 }

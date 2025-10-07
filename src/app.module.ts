@@ -13,6 +13,8 @@ import { PartnersModule } from './modules/partners/partners.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { PaginationModule } from './modules/common/pagination/pagination.module';
 import { LoggerModule } from './modules/logger/logger.module';
+import { RedisModule } from './modules/common/redis/redis.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { LoggerModule } from './modules/logger/logger.module';
     // Core modules
     PrismaModule,
     PaginationModule,
+    RedisModule, // Redis service for streams and caching
     
     // Feature modules
     AuthModule,
@@ -41,6 +44,7 @@ import { LoggerModule } from './modules/logger/logger.module';
     DashboardModule,
     FileUploadModule,
     ChatModule,
+    AuditModule, // Audit logging module
   ],
   controllers: [],
   providers: [],

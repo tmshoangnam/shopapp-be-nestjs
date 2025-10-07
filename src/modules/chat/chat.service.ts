@@ -1,18 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../common/redis/redis.service';
+import { MessageStatus, MessageType, RoomType } from '@prisma/client';
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   async saveMessage(data: {
     senderId: string;
     receiverId?: string;
     roomId?: string;
     content: string;
+    status?: MessageStatus;
+    messageType?: MessageType;
   }) {
     return this.prisma.chatMessage.create({
-      data,
+      data: {
+        ...data,
+        status: data.status || MessageStatus.SENT,
+        messageType: data.messageType || MessageType.TEXT,
+      },
       include: {
         sender: {
           select: {
@@ -77,7 +88,7 @@ export class ChatService {
         id: { in: messageIds },
       },
       data: {
-        isRead: true,
+        status: MessageStatus.READ,
       },
     });
   }
@@ -86,7 +97,9 @@ export class ChatService {
     return this.prisma.chatMessage.count({
       where: {
         receiverId: userId,
-        isRead: false,
+        status: {
+          in: [MessageStatus.SENT, MessageStatus.DELIVERED],
+        },
       },
     });
   }
@@ -187,7 +200,9 @@ export class ChatService {
         where: {
           senderId: partnerId,
           receiverId: userId,
-          isRead: false,
+          status: {
+            in: [MessageStatus.SENT, MessageStatus.DELIVERED],
+          },
         },
       });
       conversation.unreadCount = unreadCount;
@@ -241,8 +256,20 @@ export class ChatService {
   }
 
   async getOnlineUsers() {
-    // This would typically be managed by the WebSocket gateway
-    // For now, return a mock response
+    // Get online users from Redis
+    try {
+      const onlineUsers = await this.redis.get('online_users');
+      if (onlineUsers) {
+        const users = JSON.parse(onlineUsers);
+        return {
+          onlineUsers: users,
+          totalOnline: users.length,
+        };
+      }
+    } catch (error) {
+      console.error('Error getting online users from Redis:', error);
+    }
+    
     return {
       onlineUsers: [],
       totalOnline: 0,
@@ -258,7 +285,11 @@ export class ChatService {
     ] = await Promise.all([
       this.prisma.chatMessage.count(),
       this.prisma.chatMessage.count({
-        where: { isRead: false },
+        where: { 
+          status: {
+            in: [MessageStatus.SENT, MessageStatus.DELIVERED],
+          },
+        },
       }),
       this.prisma.user.count(),
       this.prisma.chatMessage.count({
@@ -276,5 +307,109 @@ export class ChatService {
       totalUsers,
       messagesToday,
     };
+  }
+
+  // Room Management Methods
+  async createRoom(data: {
+    name?: string;
+    type?: RoomType;
+    description?: string;
+  }) {
+    return this.prisma.room.create({
+      data: {
+        name: data.name,
+        type: data.type || RoomType.DIRECT,
+        description: data.description,
+      },
+    });
+  }
+
+  async getRoom(roomId: string) {
+    return this.prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        messages: {
+          take: 50,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getRooms(params: {
+    type?: string;
+    skip?: number;
+    take?: number;
+  }) {
+    const { type, skip = 0, take = 50 } = params;
+
+    const where: any = { isActive: true };
+    if (type) {
+      where.type = type;
+    }
+
+    const [rooms, total] = await Promise.all([
+      this.prisma.room.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.room.count({ where }),
+    ]);
+
+    return { data: rooms, total };
+  }
+
+  async updateMessageStatus(messageId: string, status: MessageStatus) {
+    return this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { status },
+    });
+  }
+
+  async markAsDelivered(messageIds: string[]) {
+    return this.prisma.chatMessage.updateMany({
+      where: {
+        id: { in: messageIds },
+        status: MessageStatus.SENT,
+      },
+      data: {
+        status: MessageStatus.DELIVERED,
+      },
+    });
+  }
+
+  async updateOnlineUsers(onlineUsers: any[]) {
+    try {
+      await this.redis.set('online_users', JSON.stringify(onlineUsers), 300); // 5 minutes TTL
+    } catch (error) {
+      console.error('Error updating online users in Redis:', error);
+    }
+  }
+
+  async getUserById(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        role: true,
+      },
+    });
   }
 }
