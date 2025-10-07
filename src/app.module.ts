@@ -12,6 +12,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PartnersModule } from './modules/partners/partners.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 import { PaginationModule } from './modules/common/pagination/pagination.module';
 import { LoggerModule } from './modules/logger/logger.module';
 import { RedisModule } from './modules/common/redis/redis.module';
@@ -40,6 +41,7 @@ import { AuditModule } from './modules/audit/audit.module';
     ServicesModule,
     AppointmentsModule,
     BookingsModule, // Booking management module
+    PromotionsModule, // Promotion management module
     ReviewsModule,
     NotificationsModule,
     PartnersModule,
