@@ -6,11 +6,13 @@ import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ChatRepository } from './chat.repository';
+import { ConnectionManagerService } from './services/connection-manager.service';
+import { WsJwtGuard } from './guards/ws-jwt.guard';
 
 @Module({
   imports: [AuthModule, PrismaModule, AuditModule],
   controllers: [ChatController],
-  providers: [ChatGateway, ChatService, ChatRepository],
+  providers: [ChatGateway, ChatService, ChatRepository, ConnectionManagerService, WsJwtGuard],
   exports: [ChatService, ChatRepository],
 })
 export class ChatModule {}

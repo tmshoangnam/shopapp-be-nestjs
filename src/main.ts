@@ -10,6 +10,7 @@ import { AllExceptionsFilter } from './modules/common/filters/all-exceptions.fil
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggingInterceptor } from './modules/common/interceptors/logging.interceptor';
 import { createCorsConfig } from './modules/common/config/cors.config';
+import { RedisIoAdapter } from './modules/chat/redis-io.adapter';
 import { ResponseInterceptor } from './modules/common/interceptors/response.interceptor';
 
 /**
@@ -60,6 +61,11 @@ async function bootstrap() {
 
   // Global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Optional Redis adapter for Socket.io
+  if (process.env.REDIS_URL && process.env.REDIS_ENABLED === 'true') {
+    app.useWebSocketAdapter(new RedisIoAdapter(app));
+  }
 
   // Swagger API Documentation
   const config = new DocumentBuilder()

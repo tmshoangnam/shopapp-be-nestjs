@@ -10,9 +10,15 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UseGuards, Logger } from '@nestjs/common';
+import { WsJwtGuard } from './guards/ws-jwt.guard';
+import { ConnectionManagerService } from './services/connection-manager.service';
+import { ChatEvents } from './chat.events';
 import { ChatService } from './chat.service';
 import { AuditService } from '../audit/audit.service';
+import { ValidationPipe } from '@nestjs/common';
 
+@UseGuards(WsJwtGuard)
 @WebSocketGateway({
   cors: {
     origin: [
@@ -30,15 +36,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private userSockets: Map<string, string> = new Map(); // userId -> socketId
-  private onlineUsers: Map<string, any> = new Map(); // userId -> userInfo
+  private readonly logger = new Logger(ChatGateway.name);
+  private userSockets: Map<string, string> = new Map();
+  private onlineUsers: Map<string, any> = new Map();
+  private disconnectTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    // Redis removed
     private auditService: AuditService,
+    private connManager: ConnectionManagerService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -78,7 +86,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = payload.sub;
       
       // Check if user already exists and handle reconnect
-      const existingSocketId = this.userSockets.get(userId);
+      const existingSocketId = this.connManager.getSocketId(userId);
       const isReconnect = existingSocketId !== undefined;
 
       // If user exists, disconnect old socket first
@@ -96,14 +104,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // Check if this socket is already connected (prevent duplicate connections)
-      if (this.userSockets.has(userId) && this.userSockets.get(userId) === client.id) {
+      if (this.connManager.getSocketId(userId) === client.id) {
         console.log('Socket', client.id, 'is already connected for user', userId);
         return;
       }
 
       // Store socket connection AFTER handling old socket
       console.log('Storing socket connection', userId, client.id);
-      this.userSockets.set(userId, client.id);
+      this.connManager.setConnection(userId, client.id);
       client.data.userId = userId;
       client.data.isAdmin = false;
       client.data.email = payload.email;
@@ -118,24 +126,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Get user info from database
       const userInfo = await this.chatService.getUserById(userId);
-      if (userInfo) {
-        this.onlineUsers.set(userId, {
-          ...userInfo,
-          socketId: client.id,
-          isOnline: true,
-          lastSeen: new Date().toISOString()
-        });
-        
-        // Update online users cache removed
-      }
+      if (userInfo) this.connManager.setConnection(userId, client.id, userInfo);
 
         // Send unread count
         const unreadCount = await this.chatService.getUnreadCount(userId);
-        client.emit('unread-count', { count: unreadCount });
+        client.emit(ChatEvents.UNREAD_COUNT, { count: unreadCount });
         
         // Notify admin about user online status
         if (userId !== 'admin') {
-          this.server.emit('user-online', {
+          this.server.emit(ChatEvents.USER_ONLINE, {
             userId: userId,
             userInfo: userInfo,
             isOnline: true,
@@ -155,11 +154,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
       };
 
-      if (isReconnect) {
-        this.server.emit('user-reconnected', userData);
-      } else {
-        this.server.emit('user-connected', userData);
-      }
+      if (isReconnect) this.server.emit(ChatEvents.USER_RECONNECTED, userData);
+      else this.server.emit(ChatEvents.USER_CONNECTED, userData);
 
     } catch (error) {
       console.error('Connection error:', error);
@@ -170,40 +166,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket) {
     const userId = client.data.userId;
     if (userId) {
-      // Only process disconnect if this socket is still active
       if (client.data.isActive) {
-        // Only remove from maps if this is the current active socket for the user
-        const currentSocketId = this.userSockets.get(userId);
+        const currentSocketId = this.connManager.getSocketId(userId);
         if (currentSocketId === client.id) {
-          this.userSockets.delete(userId);
-          this.onlineUsers.delete(userId);
-          
-          // Update online users cache removed
-          
-          console.log(`User ${userId} disconnected (socket ${client.id})`);
-          
-          // Notify admin about user disconnection
-          if (userId !== 'admin') {
-            this.server.emit('user-disconnected', { userId });
-            this.server.emit('user-offline', {
-              userId: userId,
-              isOnline: false,
-              timestamp: new Date().toISOString()
-            });
-          }
-        } else {
-          console.log(`Ignoring disconnect for old socket ${client.id} of user ${userId} (current: ${currentSocketId})`);
+          const timer = setTimeout(() => {
+            if (this.connManager.getSocketId(userId) === client.id) {
+              this.connManager.removeConnection(userId);
+              if (userId !== 'admin') {
+                this.server.emit(ChatEvents.USER_DISCONNECTED, { userId });
+                this.server.emit(ChatEvents.USER_OFFLINE, { userId, isOnline: false, timestamp: new Date().toISOString() });
+              }
+            }
+            this.disconnectTimers.delete(userId);
+          }, 5000);
+          this.disconnectTimers.set(userId, timer);
         }
-      } else {
-        console.log(`Ignoring disconnect for inactive socket ${client.id} of user ${userId}`);
       }
     }
   }
 
-  @SubscribeMessage('send-message')
+  @SubscribeMessage(ChatEvents.SEND_MESSAGE)
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { receiverId?: string; roomId?: string; content: string; messageType?: string },
+    @MessageBody(new ValidationPipe({ whitelist: true, transform: true })) data: import('./dto/chat.dto').SendMessageDto,
   ) {
     const senderId = client.data.userId;
     console.log('send-message', data);
@@ -255,14 +240,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       // Emit to sender (confirmation)
-      client.emit('message-sent', { success: true, message });
+      client.emit(ChatEvents.MESSAGE_SENT, { success: true, message });
 
       // Emit to receiver if online
       if (data.receiverId) {
         const receiverSocketId = this.userSockets.get(data.receiverId);
         if (receiverSocketId) {
           console.log('Emitting to receiver:', data.receiverId);
-          this.server.to(receiverSocketId).emit('new-message', message);
+          this.server.to(receiverSocketId).emit(ChatEvents.NEW_MESSAGE, message);
         } else {
           console.log('Receiver not online:', data.receiverId);
         }
@@ -271,14 +256,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Emit to room if specified
       if (data.roomId) {
         console.log('Emitting to room:', data.roomId);
-        client.to(data.roomId).emit('new-message', message);
+        client.to(data.roomId).emit(ChatEvents.NEW_MESSAGE, message);
       }
 
       // Emit to admin if connected (for monitoring)
       const adminSocketId = this.userSockets.get('admin');
       if (adminSocketId) {
         console.log('Emitting to admin:', adminSocketId);
-        this.server.to(adminSocketId).emit('new-message', message);
+        this.server.to(adminSocketId).emit(ChatEvents.NEW_MESSAGE, message);
       } else {
         console.log('Admin not connected');
       }
@@ -302,7 +287,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join-room')
   handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
+    @MessageBody(new ValidationPipe({ whitelist: true, transform: true })) data: import('./dto/chat.dto').JoinRoomDto,
   ) {
     client.join(data.roomId);
     console.log(`User ${client.data.userId} joined room ${data.roomId}`);
@@ -312,7 +297,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('leave-room')
   handleLeaveRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
+    @MessageBody(new ValidationPipe({ whitelist: true, transform: true })) data: import('./dto/chat.dto').LeaveRoomDto,
   ) {
     client.leave(data.roomId);
     console.log(`User ${client.data.userId} left room ${data.roomId}`);
@@ -322,7 +307,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('mark-as-read')
   async handleMarkAsRead(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageIds: string[] },
+    @MessageBody(new ValidationPipe({ whitelist: true, transform: true })) data: import('./dto/chat.dto').MarkAsReadDto,
   ) {
     try {
       await this.chatService.markAsRead(data.messageIds);
@@ -335,13 +320,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('typing')
   handleTyping(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { receiverId?: string; roomId?: string; isTyping: boolean },
+    @MessageBody(new ValidationPipe({ whitelist: true, transform: true })) data: import('./dto/chat.dto').TypingDto,
   ) {
     console.log(`User ${client.data.userId} is typing to ${data.receiverId}`);
     if (data.receiverId) {
       const receiverSocketId = this.userSockets.get(data.receiverId);
       if (receiverSocketId) {
-        this.server.to(receiverSocketId).emit('user-typing', {
+        this.server.to(receiverSocketId).emit(ChatEvents.USER_TYPING, {
           userId: client.data.userId,
           isTyping: data.isTyping,
         });
@@ -349,7 +334,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     if (data.roomId) {
-      client.to(data.roomId).emit('user-typing', {
+      client.to(data.roomId).emit(ChatEvents.USER_TYPING, {
         userId: client.data.userId,
         isTyping: data.isTyping,
       });

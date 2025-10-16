@@ -23,6 +23,18 @@ export class ChatService {
     return this.chatRepository.createMessage(data);
   }
 
+  async sendMessage(data: { senderId: string; receiverId?: string; roomId?: string; content: string; messageType?: MessageType }) {
+    const saved = await this.saveMessage({
+      senderId: data.senderId,
+      receiverId: data.receiverId,
+      roomId: data.roomId,
+      content: data.content,
+      messageType: data.messageType || MessageType.TEXT,
+      status: MessageStatus.SENT,
+    });
+    return saved;
+  }
+
   async getMessages(params: {
     roomId?: string;
     senderId?: string;
