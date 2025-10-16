@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReviewsRepository } from './reviews.repository';
 import { CreateReviewDto, UpdateReviewDto, ReviewFilterDto } from './dto/reviews.dto';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly reviewsRepository: ReviewsRepository) {}
 
   async create(userId: string, data: CreateReviewDto) {
     // Check if appointment exists and belongs to user
@@ -29,87 +30,17 @@ export class ReviewsService {
       throw new BadRequestException('This appointment has already been reviewed');
     }
 
-    return this.prisma.review.create({
-      data: {
-        userId,
-        serviceId: appointment.serviceId,
-        appointmentId: data.appointmentId,
-        rating: data.rating,
-        comment: data.comment,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-          },
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+    return this.reviewsRepository.create({
+      userId,
+      serviceId: appointment.serviceId,
+      appointmentId: data.appointmentId,
+      rating: data.rating,
+      comment: data.comment,
     });
   }
 
   async findAll(filter: ReviewFilterDto) {
-    const { page = 1, limit = 10, serviceId, userId, minRating } = filter;
-    const skip = (page - 1) * limit;
-
-    const where: any = {};
-
-    if (serviceId) {
-      where.serviceId = serviceId;
-    }
-
-    if (userId) {
-      where.userId = userId;
-    }
-
-    if (minRating !== undefined) {
-      where.rating = { gte: minRating };
-    }
-
-    const [reviews, total] = await Promise.all([
-      this.prisma.review.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              avatar: true,
-            },
-          },
-          service: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
-        },
-      }),
-      this.prisma.review.count({ where }),
-    ]);
-
-    return {
-      data: reviews,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return this.reviewsRepository.findAll(filter);
   }
 
   async findOne(id: string) {
@@ -155,26 +86,7 @@ export class ReviewsService {
       throw new BadRequestException('You can only update your own reviews');
     }
 
-    return this.prisma.review.update({
-      where: { id },
-      data,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-          },
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    return this.reviewsRepository.update(id, data);
   }
 
   async remove(id: string, userId: string) {
@@ -190,9 +102,7 @@ export class ReviewsService {
       throw new BadRequestException('You can only delete your own reviews');
     }
 
-    return this.prisma.review.delete({
-      where: { id },
-    });
+    return this.reviewsRepository.delete(id);
   }
 
   async getServiceRatingSummary(serviceId: string) {

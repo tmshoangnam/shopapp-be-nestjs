@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PartnersRepository } from './partners.repository';
 import { PaginationService } from '../common/pagination/services/pagination.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { UpdatePartnerDto } from './dto/update-partner.dto';
@@ -12,13 +13,12 @@ export class PartnersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paginationService: PaginationService,
+    private readonly partnersRepository: PartnersRepository,
   ) {}
 
   async create(createPartnerDto: CreatePartnerDto): Promise<Partner> {
     try {
-      const partner = await this.prisma.partner.create({
-        data: createPartnerDto,
-      });
+      const partner = await this.partnersRepository.create(createPartnerDto);
       return partner;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -98,10 +98,7 @@ export class PartnersService {
 
   async update(id: string, updatePartnerDto: UpdatePartnerDto): Promise<Partner> {
     try {
-      const partner = await this.prisma.partner.update({
-        where: { id },
-        data: updatePartnerDto,
-      });
+      const partner = await this.partnersRepository.update(id, updatePartnerDto);
       return partner;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -118,9 +115,7 @@ export class PartnersService {
 
   async remove(id: string): Promise<void> {
     try {
-      await this.prisma.partner.delete({
-        where: { id },
-      });
+      await this.partnersRepository.delete(id);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {

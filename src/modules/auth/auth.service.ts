@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthRepository } from './auth.repository';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { User } from '@prisma/client';
 
@@ -17,15 +18,14 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private readonly authRepository: AuthRepository,
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await this.authRepository.findUserByEmail(email);
 
     if (existingUser) {
       throw new ConflictException('Email already registered');
@@ -35,14 +35,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName,
-        lastName,
-      },
-    });
+    const user = await this.authRepository.createUser({ email, password: hashedPassword, firstName, lastName });
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -81,10 +74,7 @@ export class AuthService {
     }
 
     // Update last login
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    await this.authRepository.updateUser(user.id, { lastLogin: new Date() });
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -105,10 +95,7 @@ export class AuthService {
       });
 
       // Find session
-      const session = await this.prisma.session.findUnique({
-        where: { refreshToken },
-        include: { user: true },
-      });
+      const session = await this.authRepository.findSessionByRefreshToken(refreshToken);
 
       if (!session || session.expiresAt < new Date()) {
         throw new UnauthorizedException('Invalid refresh token');
@@ -118,9 +105,7 @@ export class AuthService {
       const tokens = await this.generateTokens(session.user);
 
       // Delete old refresh token and save new one
-      await this.prisma.session.delete({
-        where: { id: session.id },
-      });
+      await this.authRepository.deleteSessionById(session.id);
 
       await this.saveRefreshToken(session.user.id, tokens.refreshToken);
 
@@ -132,17 +117,10 @@ export class AuthService {
 
   async logout(userId: string, refreshToken?: string) {
     if (refreshToken) {
-      await this.prisma.session.deleteMany({
-        where: {
-          userId,
-          refreshToken,
-        },
-      });
+      await this.authRepository.deleteSessions({ userId, refreshToken });
     } else {
       // Logout from all devices
-      await this.prisma.session.deleteMany({
-        where: { userId },
-      });
+      await this.authRepository.deleteSessions({ userId });
     }
 
     return { message: 'Logged out successfully' };
@@ -159,36 +137,26 @@ export class AuthService {
 
     // Find user by OAuth ID or email
     let user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ [providerIdField]: profile.id }, { email }],
-      },
+      where: { OR: [{ [providerIdField]: profile.id }, { email }] },
     });
 
     if (!user) {
       // Create new user
-      user = await this.prisma.user.create({
-        data: {
-          email,
-          [providerIdField]: profile.id,
-          firstName: profile.name?.givenName,
-          lastName: profile.name?.familyName,
-          avatar: profile.photos?.[0]?.value,
-          isVerified: true,
-        },
+      user = await this.authRepository.createUser({
+        email,
+        [providerIdField]: profile.id,
+        firstName: profile.name?.givenName,
+        lastName: profile.name?.familyName,
+        avatar: profile.photos?.[0]?.value,
+        isVerified: true,
       });
     } else if (!user[providerIdField]) {
       // Link OAuth account to existing user
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { [providerIdField]: profile.id },
-      });
+      user = await this.authRepository.updateUser(user.id, { [providerIdField]: profile.id });
     }
 
     // Update last login
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    await this.authRepository.updateUser(user.id, { lastLogin: new Date() });
 
     return user;
   }
@@ -245,13 +213,7 @@ export class AuthService {
       }
     }
 
-    await this.prisma.session.create({
-      data: {
-        userId,
-        refreshToken,
-        expiresAt,
-      },
-    });
+    await this.authRepository.createSession({ userId, refreshToken, expiresAt });
   }
 
   private sanitizeUser(user: User) {

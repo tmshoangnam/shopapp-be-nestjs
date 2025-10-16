@@ -1,15 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateServiceDto, UpdateServiceDto, ServiceFilterDto } from './dto/services.dto';
+import { ServicesRepository } from './services.repository';
 
 @Injectable()
 export class ServicesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly servicesRepository: ServicesRepository) {}
 
   async create(data: CreateServiceDto) {
-    return this.prisma.service.create({
-      data,
-    });
+    return this.servicesRepository.create(data);
   }
 
   async findAll(filter: ServiceFilterDto) {
@@ -39,23 +38,15 @@ export class ServicesService {
       where.isActive = isActive;
     }
 
-    const [services, total] = await Promise.all([
-      this.prisma.service.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          appointments: {
-            select: { id: true },
-          },
-          reviews: {
-            select: { rating: true },
-          },
-        },
-      }),
-      this.prisma.service.count({ where }),
-    ]);
+    const { data: services, meta } = await this.servicesRepository.findAll({
+      page,
+      limit,
+      search,
+      category,
+      minPrice,
+      maxPrice,
+      isActive,
+    });
 
     // Calculate average rating for each service
     const servicesWithRating = services.map((service) => {
@@ -76,12 +67,7 @@ export class ServicesService {
 
     return {
       data: servicesWithRating,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta,
     };
   }
 
@@ -135,10 +121,7 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    return this.prisma.service.update({
-      where: { id },
-      data,
-    });
+    return this.servicesRepository.update(id, data);
   }
 
   async remove(id: string) {
@@ -150,9 +133,7 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    return this.prisma.service.delete({
-      where: { id },
-    });
+    return this.servicesRepository.delete(id);
   }
 
   async getCategories() {

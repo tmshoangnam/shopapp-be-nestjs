@@ -216,3 +216,6 @@ npm run db:seed:bookings
 - **Memory Management**: Proper cleanup và disconnection
 
 Hệ thống seeding này cung cấp foundation hoàn chỉnh cho testing và development với dữ liệu thực tế, có liên kết cao và tuân thủ tất cả business rules!
+
+
+

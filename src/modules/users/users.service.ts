@@ -4,11 +4,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersRepository } from './users.repository';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly usersRepository: UsersRepository) {}
 
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({

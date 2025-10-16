@@ -1,54 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsRepository } from './notifications.repository';
 import { CreateNotificationDto, NotificationFilterDto } from './dto/notifications.dto';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly notificationsRepository: NotificationsRepository) {}
 
   async create(data: CreateNotificationDto) {
-    return this.prisma.notification.create({
-      data,
-    });
+    return this.notificationsRepository.create(data);
   }
 
   async findAll(userId: string, filter: NotificationFilterDto) {
     const { page = 1, limit = 20, isRead, type } = filter;
-    const skip = (page - 1) * limit;
-
-    const where: any = { userId };
-
-    if (isRead !== undefined) {
-      where.isRead = isRead;
-    }
-
-    if (type) {
-      where.type = type;
-    }
-
-    const [notifications, total, unreadCount] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.notification.count({ where }),
-      this.prisma.notification.count({
-        where: { userId, isRead: false },
-      }),
-    ]);
-
-    return {
-      data: notifications,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        unreadCount,
-      },
-    };
+    const result = await this.notificationsRepository.findAll({ page, limit, isRead, type, userId } as any);
+    const unreadCount = await this.prisma.notification.count({ where: { userId, isRead: false } });
+    return { ...result, meta: { ...result.meta, unreadCount } };
   }
 
   async findOne(id: string, userId: string) {
@@ -66,31 +33,21 @@ export class NotificationsService {
   async markAsRead(id: string, userId: string) {
     const notification = await this.findOne(id, userId);
 
-    return this.prisma.notification.update({
-      where: { id },
-      data: { isRead: true },
-    });
+    return this.notificationsRepository.update(id, { isRead: true } as any);
   }
 
   async markAllAsRead(userId: string) {
-    return this.prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true },
-    });
+    return this.prisma.notification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } });
   }
 
   async remove(id: string, userId: string) {
     const notification = await this.findOne(id, userId);
 
-    return this.prisma.notification.delete({
-      where: { id },
-    });
+    return this.notificationsRepository.delete(id);
   }
 
   async removeAll(userId: string) {
-    return this.prisma.notification.deleteMany({
-      where: { userId },
-    });
+    return this.prisma.notification.deleteMany({ where: { userId } });
   }
 
   async getUnreadCount(userId: string) {

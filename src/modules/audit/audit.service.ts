@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 import { v4 as uuidv4 } from 'uuid';
+import { AuditRepository } from './audit.repository';
 
 export interface AuditEventData {
   userId?: string;
@@ -28,6 +29,7 @@ export class AuditService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private readonly auditRepository: AuditRepository,
   ) {}
 
   /**
@@ -263,13 +265,8 @@ export class AuditService {
     }
 
     const [auditLogs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.auditLog.count({ where }),
+      this.auditRepository.findMany(where, skip, take),
+      this.auditRepository.count(where),
     ]);
 
     return { data: auditLogs, total };
@@ -287,31 +284,12 @@ export class AuditService {
       if (endDate) where.createdAt.lte = endDate;
     }
 
-    const [
-      totalLogs,
-      successLogs,
-      failedLogs,
-      uniqueUsers,
-      topActions,
-    ] = await Promise.all([
-      this.prisma.auditLog.count({ where }),
-      this.prisma.auditLog.count({
-        where: { ...where, status: 'SUCCESS' },
-      }),
-      this.prisma.auditLog.count({
-        where: { ...where, status: 'FAILED' },
-      }),
-      this.prisma.auditLog.groupBy({
-        by: ['userId'],
-        where: { ...where, userId: { not: null } },
-      }).then(result => result.length),
-      this.prisma.auditLog.groupBy({
-        by: ['action'],
-        where,
-        _count: { action: true },
-        orderBy: { _count: { action: 'desc' } },
-        take: 10,
-      }),
+    const [ totalLogs, successLogs, failedLogs, uniqueUsers, topActions ] = await Promise.all([
+      this.auditRepository.count(where),
+      this.auditRepository.count({ ...where, status: 'SUCCESS' }),
+      this.auditRepository.count({ ...where, status: 'FAILED' }),
+      this.auditRepository.groupByUsers(where).then(result => result.length),
+      this.auditRepository.groupTopActions(where),
     ]);
 
     return {

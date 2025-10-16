@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppointmentsRepository } from './appointments.repository';
 import { AppointmentStatus } from '@prisma/client';
 import {
   CreateAppointmentDto,
@@ -9,7 +10,7 @@ import {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly appointmentsRepository: AppointmentsRepository) {}
 
   async create(userId: string, data: CreateAppointmentDto) {
     // Check if service exists
@@ -36,82 +37,18 @@ export class AppointmentsService {
       throw new BadRequestException('Time slot is not available');
     }
 
-    return this.prisma.appointment.create({
-      data: {
-        userId,
-        serviceId: data.serviceId,
-        appointmentDate: data.appointmentDate,
-        notes: data.notes,
-        status: AppointmentStatus.PENDING,
-      },
-      include: {
-        service: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
-        },
-      },
-    });
+    return this.appointmentsRepository.create({
+      userId,
+      serviceId: data.serviceId,
+      appointmentDate: data.appointmentDate,
+      notes: data.notes,
+      status: AppointmentStatus.PENDING,
+    } as any);
   }
 
   async findAll(userId: string, filter: AppointmentFilterDto, isAdmin = false) {
-    const { page = 1, limit = 10, status, serviceId, startDate, endDate } = filter;
-    const skip = (page - 1) * limit;
-
-    const where: any = isAdmin ? {} : { userId };
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (serviceId) {
-      where.serviceId = serviceId;
-    }
-
-    if (startDate || endDate) {
-      where.appointmentDate = {};
-      if (startDate) where.appointmentDate.gte = new Date(startDate);
-      if (endDate) where.appointmentDate.lte = new Date(endDate);
-    }
-
-    const [appointments, total] = await Promise.all([
-      this.prisma.appointment.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { appointmentDate: 'desc' },
-        include: {
-          service: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              avatar: true,
-            },
-          },
-          review: true,
-        },
-      }),
-      this.prisma.appointment.count({ where }),
-    ]);
-
-    return {
-      data: appointments,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    const options = isAdmin ? filter : { ...filter, userId } as any;
+    return this.appointmentsRepository.findAll(options);
   }
 
   async findOne(id: string, userId?: string) {
@@ -174,22 +111,7 @@ export class AppointmentsService {
       }
     }
 
-    return this.prisma.appointment.update({
-      where: { id },
-      data,
-      include: {
-        service: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
-        },
-      },
-    });
+    return this.appointmentsRepository.update(id, data as any);
   }
 
   async updateStatus(id: string, status: AppointmentStatus) {
@@ -201,22 +123,7 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
 
-    return this.prisma.appointment.update({
-      where: { id },
-      data: { status },
-      include: {
-        service: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
-        },
-      },
-    });
+    return this.appointmentsRepository.update(id, { status } as any);
   }
 
   async cancel(id: string, userId: string) {
@@ -229,10 +136,7 @@ export class AppointmentsService {
       throw new BadRequestException('Cannot cancel completed or cancelled appointment');
     }
 
-    return this.prisma.appointment.update({
-      where: { id },
-      data: { status: AppointmentStatus.CANCELLED },
-    });
+    return this.appointmentsRepository.update(id, { status: AppointmentStatus.CANCELLED } as any);
   }
 
   async getAvailableSlots(serviceId: string, date: Date) {
@@ -298,10 +202,10 @@ export class AppointmentsService {
 
     const [total, pending, confirmed, completed, cancelled] = await Promise.all([
       this.prisma.appointment.count({ where }),
-      this.prisma.appointment.count({ where: { ...where, status: AppointmentStatus.PENDING } }),
-      this.prisma.appointment.count({ where: { ...where, status: AppointmentStatus.CONFIRMED } }),
-      this.prisma.appointment.count({ where: { ...where, status: AppointmentStatus.COMPLETED } }),
-      this.prisma.appointment.count({ where: { ...where, status: AppointmentStatus.CANCELLED } }),
+      this.appointmentsRepository.countByStatus(AppointmentStatus.PENDING, where),
+      this.appointmentsRepository.countByStatus(AppointmentStatus.CONFIRMED, where),
+      this.appointmentsRepository.countByStatus(AppointmentStatus.COMPLETED, where),
+      this.appointmentsRepository.countByStatus(AppointmentStatus.CANCELLED, where),
     ]);
 
     return {

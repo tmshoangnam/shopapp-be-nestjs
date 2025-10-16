@@ -6,9 +6,11 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { AllExceptionsFilter } from './modules/common/filters/all-exceptions.filter';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggingInterceptor } from './modules/common/interceptors/logging.interceptor';
 import { createCorsConfig } from './modules/common/config/cors.config';
+import { ResponseInterceptor } from './modules/common/interceptors/response.interceptor';
 
 /**
  * Bootstrap function to initialize and configure the NestJS application
@@ -53,8 +55,11 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // Global logging interceptor
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  // Global interceptors
+  app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
+
+  // Global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Swagger API Documentation
   const config = new DocumentBuilder()
@@ -87,8 +92,7 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
-    .addServer('http://localhost:4001', 'Development server')
-    .addServer('https://api.shopapp.com', 'Production server')
+    .addServer('/', 'Current server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -108,7 +112,7 @@ async function bootstrap() {
   });
 
   const port = configService.get('PORT') || 4000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 ShopApp Backend API is running!`, 'Bootstrap');
   logger.log(`📡 Server: http://localhost:${port}`, 'Bootstrap');

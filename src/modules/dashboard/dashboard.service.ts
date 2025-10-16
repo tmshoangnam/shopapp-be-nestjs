@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DashboardRepository } from './dashboard.repository';
 import { PaginationService } from '../common/pagination/services/pagination.service';
 import { DashboardResponseDto, MonthlyStatsDto } from './dto/dashboard-stats.dto';
 import { DashboardQueryDto, DashboardPeriod } from './dto/dashboard-query.dto';
@@ -9,6 +10,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paginationService: PaginationService,
+    private readonly dashboardRepository: DashboardRepository,
   ) {}
 
   async getDashboardStats(queryDto?: DashboardQueryDto): Promise<DashboardResponseDto> {

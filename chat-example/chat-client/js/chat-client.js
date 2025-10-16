@@ -199,7 +199,7 @@ class ChatClient {
         // }
         
         // Use a valid test token for development
-        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZDBlMGM1Zi02MzZiLTRlNjUtOTU0Mi1mMmNmMTBjMDdlOTUiLCJlbWFpbCI6IndpbGxpYW0udGF5bG9yQGV4YW1wbGUuY29tIiwicm9sZSI6IlVTRVIiLCJmaXJzdE5hbWUiOiJXaWxsaWFtIiwibGFzdE5hbWUiOiJUYXlsb3IiLCJpYXQiOjE3NTk4MDkxNjksImV4cCI6MTc2MDQxMzk2OX0.02GRm1PNPcy22OrPT3PKQI7WArCjCM1pZ9Mbw5njft4';
+        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YTExZjc0Yi1mNjAxLTRkNDctYTU3Yy04NTE0NzM1NmFkYzIiLCJlbWFpbCI6InN0YWZmQHNob3BhcHAuY29tIiwicm9sZSI6IlNUQUZGIiwiZmlyc3ROYW1lIjoiSmFuZSIsImxhc3ROYW1lIjoiU3RhZmYiLCJpYXQiOjE3NjA1OTgyMjcsImV4cCI6MTc2MTIwMzAyN30.-gQdQV6SZdkeP_kunxZgiefRj9uUlcHXxESgoIK_tr0';
     }
     
     /**

@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { BookingsRepository } from './bookings.repository';
-import { BookingEntity } from './entities';
 import { CreateBookingDto, UpdateBookingDto, QueryBookingDto, CancelBookingDto } from './dto';
-import { IBookingService, PaginatedResult } from './interfaces';
-// BookingStatus and PaymentStatus enums will be imported from Prisma client after generation
+
+type PaginatedResult<T> = {
+  data: T[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
 
 @Injectable()
-export class BookingsService implements IBookingService {
-  constructor(private readonly bookingsRepository: BookingsRepository) {}
+export class BookingsService {
+  constructor(private readonly prisma: PrismaService, private readonly bookingsRepository: BookingsRepository) {}
 
-  async create(createBookingDto: CreateBookingDto): Promise<BookingEntity> {
+  async create(createBookingDto: CreateBookingDto) {
     // Validate booking dates
     this.validateBookingDates(createBookingDto);
 
@@ -30,7 +33,7 @@ export class BookingsService implements IBookingService {
     return this.bookingsRepository.create(createBookingDto);
   }
 
-  async findById(id: string): Promise<BookingEntity> {
+  async findById(id: string) {
     const booking = await this.bookingsRepository.findById(id);
     
     if (!booking) {
@@ -40,23 +43,23 @@ export class BookingsService implements IBookingService {
     return booking;
   }
 
-  async findByUserId(userId: string, options?: QueryBookingDto): Promise<PaginatedResult<BookingEntity>> {
+  async findByUserId(userId: string, options: QueryBookingDto = {}): Promise<PaginatedResult<any>> {
     return this.bookingsRepository.findByUserId(userId, options);
   }
 
-  async findByServiceId(serviceId: string, options?: QueryBookingDto): Promise<PaginatedResult<BookingEntity>> {
+  async findByServiceId(serviceId: string, options: QueryBookingDto = {}): Promise<PaginatedResult<any>> {
     return this.bookingsRepository.findByServiceId(serviceId, options);
   }
 
-  async findByPartnerId(partnerId: string, options?: QueryBookingDto): Promise<PaginatedResult<BookingEntity>> {
+  async findByPartnerId(partnerId: string, options: QueryBookingDto = {}): Promise<PaginatedResult<any>> {
     return this.bookingsRepository.findByPartnerId(partnerId, options);
   }
 
-  async findAll(options?: QueryBookingDto): Promise<PaginatedResult<BookingEntity>> {
+  async findAll(options: QueryBookingDto = {}): Promise<PaginatedResult<any>> {
     return this.bookingsRepository.findAll(options);
   }
 
-  async update(id: string, updateBookingDto: UpdateBookingDto): Promise<BookingEntity> {
+  async update(id: string, updateBookingDto: UpdateBookingDto) {
     const existingBooking = await this.findById(id);
     
     // Check if booking can be updated
@@ -90,13 +93,13 @@ export class BookingsService implements IBookingService {
     return this.bookingsRepository.update(id, updateBookingDto);
   }
 
-  async cancel(id: string, cancelBookingDto: CancelBookingDto): Promise<BookingEntity> {
+  async cancel(id: string, cancelBookingDto: CancelBookingDto) {
     const existingBooking = await this.findById(id);
     
     // Check if booking can be cancelled
     this.validateBookingCancellation(existingBooking);
 
-    return this.bookingsRepository.cancel(id, cancelBookingDto.cancellationReason);
+    return this.bookingsRepository.update(id, { status: 'CANCELLED', cancellationReason: cancelBookingDto.cancellationReason } as any);
   }
 
   async delete(id: string): Promise<void> {
@@ -105,27 +108,27 @@ export class BookingsService implements IBookingService {
     // Check if booking can be deleted
     this.validateBookingDeletion(existingBooking);
 
-    return this.bookingsRepository.delete(id);
+    await this.bookingsRepository.delete(id);
   }
 
-  async confirm(id: string): Promise<BookingEntity> {
+  async confirm(id: string) {
     const existingBooking = await this.findById(id);
     
     if (existingBooking.status !== 'PENDING') {
       throw new BadRequestException('Only pending bookings can be confirmed');
     }
 
-    return this.bookingsRepository.update(id, { status: 'CONFIRMED' });
+    return this.bookingsRepository.update(id, { status: 'CONFIRMED' } as any);
   }
 
-  async complete(id: string): Promise<BookingEntity> {
+  async complete(id: string) {
     const existingBooking = await this.findById(id);
     
     if (existingBooking.status !== 'IN_PROGRESS') {
       throw new BadRequestException('Only in-progress bookings can be completed');
     }
 
-    return this.bookingsRepository.update(id, { status: 'COMPLETED' });
+    return this.bookingsRepository.update(id, { status: 'COMPLETED' } as any);
   }
 
   async getStatistics(partnerId?: string): Promise<{
@@ -136,22 +139,17 @@ export class BookingsService implements IBookingService {
     cancelled: number;
     totalRevenue: number;
   }> {
-    const where = partnerId ? { partnerId } : {};
-    
-    const [total, pending, confirmed, completed, cancelled, revenueData] = await Promise.all([
-      this.bookingsRepository.countByStatus(''),
+    const where = partnerId ? { partnerId } : ({} as any);
+    const [total, pending, confirmed, completed, cancelled, completedBookings] = await Promise.all([
+      this.prisma.booking.count({ where }),
       this.bookingsRepository.countByStatus('PENDING'),
       this.bookingsRepository.countByStatus('CONFIRMED'),
       this.bookingsRepository.countByStatus('COMPLETED'),
       this.bookingsRepository.countByStatus('CANCELLED'),
-      this.bookingsRepository.findAll({ 
-        ...where,
-        status: 'COMPLETED',
-        limit: 1000, // Get all completed bookings for revenue calculation
-      }),
+      this.prisma.booking.findMany({ where: { ...where, status: 'COMPLETED' as any }, select: { finalAmount: true } }),
     ]);
 
-    const totalRevenue = revenueData.data.reduce((sum, booking) => sum + booking.finalAmount, 0);
+    const totalRevenue = completedBookings.reduce((sum, b) => sum + Number(b.finalAmount), 0);
 
     return {
       total,
@@ -164,44 +162,20 @@ export class BookingsService implements IBookingService {
   }
 
   async checkAvailability(serviceId: string, startTime: Date, endTime: Date, excludeBookingId?: string): Promise<boolean> {
-    const where: any = {
-      serviceId,
-      status: {
-        in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'],
+    const overlapping = await this.prisma.booking.findFirst({
+      where: {
+        serviceId,
+        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] as any },
+        id: excludeBookingId ? { not: excludeBookingId } : undefined,
+        OR: [
+          { AND: [{ startTime: { lte: startTime } }, { endTime: { gt: startTime } }] },
+          { AND: [{ startTime: { lt: endTime } }, { endTime: { gte: endTime } }] },
+          { AND: [{ startTime: { gte: startTime } }, { endTime: { lte: endTime } }] },
+        ],
       },
-      OR: [
-        {
-          AND: [
-            { startTime: { lte: startTime } },
-            { endTime: { gt: startTime } },
-          ],
-        },
-        {
-          AND: [
-            { startTime: { lt: endTime } },
-            { endTime: { gte: endTime } },
-          ],
-        },
-        {
-          AND: [
-            { startTime: { gte: startTime } },
-            { endTime: { lte: endTime } },
-          ],
-        },
-      ],
-    };
-
-    if (excludeBookingId) {
-      where.id = { not: excludeBookingId };
-    }
-
-    const conflictingBookings = await this.bookingsRepository.findAll({
-      serviceId,
-      startDate: startTime.toISOString(),
-      endDate: endTime.toISOString(),
+      select: { id: true },
     });
-
-    return conflictingBookings.data.length === 0;
+    return !overlapping;
   }
 
   private validateBookingDates(createBookingDto: CreateBookingDto): void {
@@ -279,7 +253,7 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  private validateBookingUpdate(existingBooking: BookingEntity, updateBookingDto: UpdateBookingDto): void {
+  private validateBookingUpdate(existingBooking: any, updateBookingDto: UpdateBookingDto): void {
     // Cannot update cancelled or completed bookings
     if (existingBooking.status === 'CANCELLED') {
       throw new BadRequestException('Cannot update cancelled booking');
@@ -297,7 +271,7 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  private validateBookingCancellation(existingBooking: BookingEntity): void {
+  private validateBookingCancellation(existingBooking: any): void {
     // Cannot cancel already cancelled booking
     if (existingBooking.status === 'CANCELLED') {
       throw new BadRequestException('Booking is already cancelled');
@@ -314,7 +288,7 @@ export class BookingsService implements IBookingService {
     }
   }
 
-  private validateBookingDeletion(existingBooking: BookingEntity): void {
+  private validateBookingDeletion(existingBooking: any): void {
     // Cannot delete if payment is completed
     if (existingBooking.paymentStatus === 'COMPLETED') {
       throw new BadRequestException('Cannot delete paid booking');
@@ -324,5 +298,60 @@ export class BookingsService implements IBookingService {
     if (existingBooking.status === 'IN_PROGRESS') {
       throw new BadRequestException('Cannot delete in-progress booking');
     }
+  }
+
+  private defaultInclude() {
+    return {
+      user: { select: { id: true, email: true, firstName: true, lastName: true, phone: true } },
+      service: { select: { id: true, name: true, description: true, category: true, duration: true, price: true, image: true } },
+      partner: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      payments: { select: { id: true, amount: true, currency: true, method: true, status: true, transactionId: true, gateway: true, createdAt: true } },
+    } as const;
+  }
+
+  private buildWhereClause(options: QueryBookingDto) {
+    const where: any = {};
+    if (options.search) {
+      where.OR = [
+        { user: { OR: [
+          { firstName: { contains: options.search, mode: 'insensitive' } },
+          { lastName: { contains: options.search, mode: 'insensitive' } },
+          { email: { contains: options.search, mode: 'insensitive' } },
+        ] } },
+        { service: { OR: [
+          { name: { contains: options.search, mode: 'insensitive' } },
+          { description: { contains: options.search, mode: 'insensitive' } },
+        ] } },
+        { partner: { name: { contains: options.search, mode: 'insensitive' } } },
+      ];
+    }
+    if (options.userId) where.userId = options.userId;
+    if (options.serviceId) where.serviceId = options.serviceId;
+    if (options.partnerId) where.partnerId = options.partnerId;
+    if (options.staffId) where.staffId = options.staffId;
+    if (options.status) where.status = options.status as any;
+    if (options.paymentStatus) where.paymentStatus = options.paymentStatus as any;
+    if (options.startDate && options.endDate) {
+      where.bookingDate = { gte: new Date(options.startDate), lte: new Date(options.endDate) };
+    }
+    return where;
+  }
+
+  private toUpdateData(updateBookingDto: UpdateBookingDto) {
+    const data: any = {};
+    if (updateBookingDto.partnerId !== undefined) data.partnerId = updateBookingDto.partnerId;
+    if (updateBookingDto.staffId !== undefined) data.staffId = updateBookingDto.staffId;
+    if (updateBookingDto.bookingDate !== undefined) data.bookingDate = new Date(updateBookingDto.bookingDate);
+    if (updateBookingDto.startTime !== undefined) data.startTime = new Date(updateBookingDto.startTime);
+    if (updateBookingDto.endTime !== undefined) data.endTime = new Date(updateBookingDto.endTime);
+    if (updateBookingDto.status !== undefined) data.status = updateBookingDto.status as any;
+    if (updateBookingDto.totalAmount !== undefined) data.totalAmount = updateBookingDto.totalAmount;
+    if (updateBookingDto.discountAmount !== undefined) data.discountAmount = updateBookingDto.discountAmount;
+    if (updateBookingDto.finalAmount !== undefined) data.finalAmount = updateBookingDto.finalAmount;
+    if (updateBookingDto.paymentStatus !== undefined) data.paymentStatus = updateBookingDto.paymentStatus as any;
+    if (updateBookingDto.paymentMethod !== undefined) data.paymentMethod = updateBookingDto.paymentMethod;
+    if (updateBookingDto.notes !== undefined) data.notes = updateBookingDto.notes;
+    if (updateBookingDto.cancellationReason !== undefined) data.cancellationReason = updateBookingDto.cancellationReason;
+    return data;
   }
 }

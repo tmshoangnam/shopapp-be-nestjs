@@ -13,9 +13,12 @@ import { LineStrategy } from './strategies/line.strategy';
 import { InstagramStrategy } from './strategies/instagram.strategy';
 import { RolesGuard } from './guards/roles.guard';
 import { RoleHierarchyGuard } from './guards/role-hierarchy.guard';
+import { PrismaModule } from '../prisma/prisma.module';
+import { AuthRepository } from './auth.repository';
 
 @Module({
   imports: [
+    PrismaModule,
     UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -32,6 +35,7 @@ import { RoleHierarchyGuard } from './guards/role-hierarchy.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthRepository,
     JwtStrategy,
     GoogleStrategy,
     FacebookStrategy,
@@ -41,6 +45,6 @@ import { RoleHierarchyGuard } from './guards/role-hierarchy.guard';
     RolesGuard,
     RoleHierarchyGuard,
   ],
-  exports: [AuthService, JwtModule, RolesGuard, RoleHierarchyGuard],
+  exports: [AuthService, AuthRepository, JwtModule, RolesGuard, RoleHierarchyGuard],
 })
 export class AuthModule {}
