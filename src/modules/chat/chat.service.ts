@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { ChatRepository } from './chat.repository';
 import { MessageStatus, MessageType, RoomType } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class ChatService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private readonly chatRepository: ChatRepository,
   ) {}
 
   async saveMessage(data: {
@@ -18,24 +20,7 @@ export class ChatService {
     status?: MessageStatus;
     messageType?: MessageType;
   }) {
-    return this.prisma.chatMessage.create({
-      data: {
-        ...data,
-        status: data.status || MessageStatus.SENT,
-        messageType: data.messageType || MessageType.TEXT,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-          },
-        },
-      },
-    });
+    return this.chatRepository.createMessage(data);
   }
 
   async getMessages(params: {
@@ -59,38 +44,15 @@ export class ChatService {
     }
 
     const [messages, total] = await Promise.all([
-      this.prisma.chatMessage.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: 'asc' },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              avatar: true,
-            },
-          },
-        },
-      }),
-      this.prisma.chatMessage.count({ where }),
+      this.chatRepository.findMessages(where, skip, take, 'asc'),
+      this.chatRepository.countMessages(where),
     ]);
 
     return { data: messages, total };
   }
 
   async markAsRead(messageIds: string[]) {
-    return this.prisma.chatMessage.updateMany({
-      where: {
-        id: { in: messageIds },
-      },
-      data: {
-        status: MessageStatus.READ,
-      },
-    });
+    return this.chatRepository.markAsRead(messageIds);
   }
 
   async getUnreadCount(userId: string) {
@@ -121,37 +83,10 @@ export class ChatService {
   async getUserMessages(userId: string, params: { skip?: number; take?: number }) {
     const { skip = 0, take = 50 } = params;
 
+    const where = { OR: [{ senderId: userId }, { receiverId: userId }] };
     const [messages, total] = await Promise.all([
-      this.prisma.chatMessage.findMany({
-        where: {
-          OR: [
-            { senderId: userId },
-            { receiverId: userId },
-          ],
-        },
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              avatar: true,
-            },
-          },
-        },
-      }),
-      this.prisma.chatMessage.count({
-        where: {
-          OR: [
-            { senderId: userId },
-            { receiverId: userId },
-          ],
-        },
-      }),
+      this.chatRepository.findMessages(where, skip, take, 'desc'),
+      this.chatRepository.countMessages(where),
     ]);
 
     return { data: messages, total };
@@ -232,24 +167,8 @@ export class ChatService {
     }
 
     const [messages, total] = await Promise.all([
-      this.prisma.chatMessage.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              avatar: true,
-            },
-          },
-        },
-      }),
-      this.prisma.chatMessage.count({ where }),
+      this.chatRepository.findMessages(where, skip, take, 'desc'),
+      this.chatRepository.countMessages(where),
     ]);
 
     return { data: messages, total };
@@ -373,31 +292,14 @@ export class ChatService {
   }
 
   async updateMessageStatus(messageId: string, status: MessageStatus) {
-    return this.prisma.chatMessage.update({
-      where: { id: messageId },
-      data: { status },
-    });
+    return this.prisma.chatMessage.update({ where: { id: messageId }, data: { status } });
   }
 
   async markAsDelivered(messageIds: string[]) {
-    return this.prisma.chatMessage.updateMany({
-      where: {
-        id: { in: messageIds },
-        status: MessageStatus.SENT,
-      },
-      data: {
-        status: MessageStatus.DELIVERED,
-      },
-    });
+    return this.chatRepository.markAsDelivered(messageIds);
   }
 
-  async updateOnlineUsers(onlineUsers: any[]) {
-    try {
-      await this.redis.set('online_users', JSON.stringify(onlineUsers), 300); // 5 minutes TTL
-    } catch (error) {
-      console.error('Error updating online users in Redis:', error);
-    }
-  }
+  async updateOnlineUsers(onlineUsers: any[]) { /* no-op: removed Redis caching */ }
 
   async getUserById(userId: string) {
     return this.prisma.user.findUnique({

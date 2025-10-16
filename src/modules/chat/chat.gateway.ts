@@ -11,7 +11,6 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatService } from './chat.service';
-import { RedisService } from '../common/redis/redis.service';
 import { AuditService } from '../audit/audit.service';
 
 @WebSocketGateway({
@@ -38,7 +37,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private chatService: ChatService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private redis: RedisService,
+    // Redis removed
     private auditService: AuditService,
   ) {}
 
@@ -127,8 +126,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           lastSeen: new Date().toISOString()
         });
         
-        // Update online users in Redis
-        await this.chatService.updateOnlineUsers(Array.from(this.onlineUsers.values()));
+        // Update online users cache removed
       }
 
         // Send unread count
@@ -180,8 +178,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.userSockets.delete(userId);
           this.onlineUsers.delete(userId);
           
-          // Update online users in Redis
-          await this.chatService.updateOnlineUsers(Array.from(this.onlineUsers.values()));
+          // Update online users cache removed
           
           console.log(`User ${userId} disconnected (socket ${client.id})`);
           
@@ -228,12 +225,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         createdAt: new Date().toISOString(),
       };
 
-      // Publish message to Redis stream for persistence
-      await this.redis.publishToStream('chat_stream', {
-        data: JSON.stringify(messageData),
+      // Persist message directly via service (no Redis stream)
+      await this.chatService.saveMessage({
+        senderId,
+        receiverId: data.receiverId,
+        roomId: data.roomId,
+        content: data.content,
+        status: 'SENT' as any,
+        messageType: (data.messageType as any) || 'TEXT',
       });
-
-      console.log('Message published to Redis stream:', messageId);
 
       // Create message object for real-time delivery
       const message = {
